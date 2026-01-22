@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          String    @default("PROFESSOR") // ADMIN ou PROFESSOR
+  sessions      Session[]
+  accounts      Account[]
+  professor     Professor?
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Modalidade {
+  id             String           @id @default(cuid())
+  nome           String           @unique
+  descricao      String?
+  corTema        String?          @default("#1e40af")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  professores    Professor[]
+  alunos         Aluno[]
+  graduacoes     GraduacaoTipo[]
+
+  @@map("modalidade")
+}
+
+model GraduacaoTipo {
+  id            String      @id @default(cuid())
+  nome          String      // Ex: Faixa Branca, Faixa Azul, etc
+  ordem         Int         // Para ordenar as graduações
+  modalidadeId  String
+  modalidade    Modalidade  @relation(fields: [modalidadeId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  alunos        Aluno[]
+  graduacoes    Graduacao[]
+
+  @@unique([modalidadeId, nome])
+  @@map("graduacao_tipo")
+}
+
+model Professor {
+  id            String      @id @default(cuid())
+  nome          String
+  telefone      String
+  email         String      @unique
+  modalidadeId  String
+  modalidade    Modalidade  @relation(fields: [modalidadeId], references: [id])
+  isAdmin       Boolean     @default(false)
+  ativo         Boolean     @default(true)
+  userId        String?     @unique
+  user          User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  graduacoes    Graduacao[]
+
+  @@map("professor")
+}
+
+enum StatusMensalidade {
+  EM_DIA
+  ATRASADA
+  ISENTO
+}
+
+enum PlanoPagamento {
+  MENSAL
+  BIMESTRAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+model Aluno {
+  id                  String            @id @default(cuid())
+  nome                String
+  telefone            String
+  email               String?
+  dataNascimento      DateTime
+  dataMatricula       DateTime          @default(now())
+  modalidadeId        String
+  modalidade          Modalidade        @relation(fields: [modalidadeId], references: [id])
+  graduacaoAtualId    String?
+  graduacaoAtual      GraduacaoTipo?    @relation(fields: [graduacaoAtualId], references: [id])
+  statusMensalidade   StatusMensalidade @default(EM_DIA)
+  planoPagamento      PlanoPagamento    @default(MENSAL)
+  valorPlano          Float
+  proximoVencimento   DateTime?
+  ativo               Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  mensalidades        Mensalidade[]
+  graduacoes          Graduacao[]
+
+  @@map("aluno")
+}
+
+model Mensalidade {
+  id                String   @id @default(cuid())
+  alunoId           String
+  aluno             Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  dataPagamento     DateTime
+  valorPago         Float
+  proximoVencimento DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("mensalidade")
+}
+
+model Graduacao {
+  id                String         @id @default(cuid())
+  alunoId           String
+  aluno             Aluno          @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  graduacaoTipoId   String
+  graduacaoTipo     GraduacaoTipo  @relation(fields: [graduacaoTipoId], references: [id])
+  professorId       String
+  professor         Professor      @relation(fields: [professorId], references: [id])
+  dataGraduacao     DateTime
+  valorPago         Float?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("graduacao")
+}
