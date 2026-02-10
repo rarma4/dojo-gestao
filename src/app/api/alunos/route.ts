@@ -32,7 +32,33 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(alunos);
+    // Verificar e atualizar status dos alunos baseado na data de vencimento
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const alunosAtualizados = await Promise.all(
+      alunos.map(async (aluno) => {
+        // Só atualiza se o aluno não for ISENTO e tiver próximo vencimento
+        if (aluno.statusMensalidade !== "ISENTO" && aluno.proximoVencimento) {
+          const proximoVencimento = new Date(aluno.proximoVencimento);
+          proximoVencimento.setHours(0, 0, 0, 0);
+          
+          const novoStatus = proximoVencimento >= hoje ? "EM_DIA" : "ATRASADA";
+          
+          // Se o status mudou, atualiza no banco
+          if (aluno.statusMensalidade !== novoStatus) {
+            await prisma.aluno.update({
+              where: { id: aluno.id },
+              data: { statusMensalidade: novoStatus },
+            });
+            aluno.statusMensalidade = novoStatus;
+          }
+        }
+        return aluno;
+      })
+    );
+
+    return NextResponse.json(alunosAtualizados);
   } catch (error) {
     console.error("Erro ao buscar alunos:", error);
     return NextResponse.json(

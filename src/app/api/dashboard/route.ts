@@ -14,6 +14,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
+    // Verificar e atualizar status dos alunos baseado na data de vencimento
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const todosAlunos = await prisma.aluno.findMany({
+      where: {
+        statusMensalidade: { not: StatusMensalidade.ISENTO },
+        proximoVencimento: { not: null },
+      },
+      select: {
+        id: true,
+        statusMensalidade: true,
+        proximoVencimento: true,
+      },
+    });
+
+    // Atualizar status dos alunos que mudaram
+    await Promise.all(
+      todosAlunos.map(async (aluno) => {
+        if (aluno.proximoVencimento) {
+          const proximoVencimento = new Date(aluno.proximoVencimento);
+          proximoVencimento.setHours(0, 0, 0, 0);
+          
+          const novoStatus = proximoVencimento >= hoje ? "EM_DIA" : "ATRASADA";
+          
+          // Se o status mudou, atualiza no banco
+          if (aluno.statusMensalidade !== novoStatus) {
+            await prisma.aluno.update({
+              where: { id: aluno.id },
+              data: { statusMensalidade: novoStatus },
+            });
+          }
+        }
+      })
+    );
+
     // Total de alunos
     const totalAlunos = await prisma.aluno.count({
       where: { ativo: true },

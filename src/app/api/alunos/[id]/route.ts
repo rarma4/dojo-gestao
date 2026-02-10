@@ -38,6 +38,26 @@ export async function GET(
       );
     }
 
+    // Verificar e atualizar status baseado na data de vencimento
+    if (aluno.statusMensalidade !== "ISENTO" && aluno.proximoVencimento) {
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      
+      const proximoVencimento = new Date(aluno.proximoVencimento);
+      proximoVencimento.setHours(0, 0, 0, 0);
+      
+      const novoStatus = proximoVencimento >= hoje ? "EM_DIA" : "ATRASADA";
+      
+      // Se o status mudou, atualiza no banco
+      if (aluno.statusMensalidade !== novoStatus) {
+        await prisma.aluno.update({
+          where: { id: aluno.id },
+          data: { statusMensalidade: novoStatus },
+        });
+        aluno.statusMensalidade = novoStatus as StatusMensalidade;
+      }
+    }
+
     return NextResponse.json(aluno);
   } catch (error) {
     console.error("Erro ao buscar aluno:", error);
