@@ -1,0 +1,42 @@
+{
+  "name": "Dojo Gestão",
+  "short_name": "Dojo Gestão",
+  "description": "Gestão de alunos para academias de artes marciais",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/lotus-image.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/lotus-image.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "education"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Acessar o painel principal",
+      "url": "/dashboard",
+      "icons": []
+    },
+    {
+      "name": "Alunos",
+      "short_name": "Alunos",
+      "description": "Gerenciar alunos",
+      "url": "/dashboard/alunos",
+      "icons": []
+    }
+  ]
+}
