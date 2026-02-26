@@ -5,7 +5,7 @@ import LogoLotus from "../../public/lotus-image.webp"
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
+    <div className="flex h-dvh flex-col items-center justify-center p-4 md:h-screen">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
         <Image src={LogoLotus} width={150} height={150} alt="Logo Lotus" className="mx-auto mb-4" />
