@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:clean": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force; if (Test-Path .next\\dev\\lock) { Remove-Item .next\\dev\\lock -Force }; npm run dev\"",
-    "build": "prisma generate && next build",
+    "prisma:generate": "prisma generate",
+    "build": "next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint"
