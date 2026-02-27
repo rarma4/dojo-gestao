@@ -132,7 +132,7 @@ export function ModalidadesManager() {
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground">
-              Nenhuma modalidade cadastrada. Clique em "Nova Modalidade" para começar.
+              Nenhuma modalidade cadastrada para a sua conta. Clique em "Nova Modalidade" para começar.
             </p>
           </CardContent>
         </Card>

@@ -97,7 +97,7 @@ export function RecentActivities() {
         <CardContent>
           {graduacoes.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma graduação recente
+              Nenhuma graduação recente na sua conta
             </p>
           ) : (
             <div className="space-y-4">
@@ -141,7 +141,7 @@ export function RecentActivities() {
         <CardContent>
           {vencimentos.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum vencimento próximo
+              Nenhum vencimento próximo na sua conta
             </p>
           ) : (
             <div className="space-y-4">

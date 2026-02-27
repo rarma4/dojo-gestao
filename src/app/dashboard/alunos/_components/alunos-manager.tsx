@@ -214,7 +214,7 @@ export function AlunosManager() {
             {filteredAlunos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
-                  Nenhum aluno encontrado
+                  Nenhum aluno encontrado para a sua conta
                 </TableCell>
               </TableRow>
             ) : (

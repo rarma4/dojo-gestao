@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
+
     const { searchParams } = new URL(request.url);
     const modalidadeId = searchParams.get("modalidadeId");
     const ativo = searchParams.get("ativo");
 
-    const where: any = {};
+    const where: any = { ownerId: authResult.userId };
     if (modalidadeId) where.modalidadeId = modalidadeId;
     if (ativo !== null) where.ativo = ativo === "true";
 
@@ -41,22 +44,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
-
-    if (user?.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Apenas administradores podem criar professores" },
-        { status: 403 }
-      );
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const body = await request.json();
     const { nome, telefone, email, modalidadeId, isAdmin, ativo } = body;
@@ -68,11 +57,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const modalidade = await prisma.modalidade.findFirst({
+      where: { id: modalidadeId, ownerId: authResult.userId },
+      select: { id: true },
+    });
+
+    if (!modalidade) {
+      return NextResponse.json(
+        { error: "Modalidade não encontrada" },
+        { status: 404 }
+      );
+    }
+
     const professor = await prisma.professor.create({
       data: {
         nome,
         telefone,
         email,
+        ownerId: authResult.userId,
         modalidadeId,
         isAdmin: isAdmin || false,
         ativo: ativo !== undefined ? ativo : true,

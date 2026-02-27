@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
 export async function GET(
   request: NextRequest,
@@ -8,8 +8,11 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const professor = await prisma.professor.findUnique({
-      where: { id },
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
+
+    const professor = await prisma.professor.findFirst({
+      where: { id, ownerId: authResult.userId },
       include: {
         modalidade: true,
         user: {
@@ -45,25 +48,37 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
-
-    if (user?.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Apenas administradores podem editar professores" },
-        { status: 403 }
-      );
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const body = await request.json();
     const { nome, telefone, email, modalidadeId, isAdmin, ativo } = body;
+
+    const professorExistente = await prisma.professor.findFirst({
+      where: { id, ownerId: authResult.userId },
+      select: { id: true },
+    });
+
+    if (!professorExistente) {
+      return NextResponse.json(
+        { error: "Professor não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (modalidadeId) {
+      const modalidade = await prisma.modalidade.findFirst({
+        where: { id: modalidadeId, ownerId: authResult.userId },
+        select: { id: true },
+      });
+
+      if (!modalidade) {
+        return NextResponse.json(
+          { error: "Modalidade não encontrada" },
+          { status: 404 }
+        );
+      }
+    }
 
     const professor = await prisma.professor.update({
       where: { id },
@@ -111,26 +126,19 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const deleted = await prisma.professor.deleteMany({
+      where: { id, ownerId: authResult.userId },
     });
 
-    if (user?.role !== "ADMIN") {
+    if (deleted.count === 0) {
       return NextResponse.json(
-        { error: "Apenas administradores podem deletar professores" },
-        { status: 403 }
+        { error: "Professor não encontrado" },
+        { status: 404 }
       );
     }
-
-    await prisma.professor.delete({
-      where: { id },
-    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

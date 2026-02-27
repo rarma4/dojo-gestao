@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const { searchParams } = new URL(request.url);
     const tipo = searchParams.get("tipo") || "todos";
@@ -32,6 +29,7 @@ export async function GET(request: NextRequest) {
     // Buscar mensalidades
     if (tipo === "todos" || tipo === "mensalidade") {
       const whereClause: any = {
+        ownerId: authResult.userId,
         dataPagamento: {
           gte: startDate,
           lte: endDate,
@@ -79,6 +77,7 @@ export async function GET(request: NextRequest) {
     // Buscar graduações
     if (tipo === "todos" || tipo === "graduacao") {
       const whereClause: any = {
+        ownerId: authResult.userId,
         dataGraduacao: {
           gte: startDate,
           lte: endDate,
@@ -113,6 +112,7 @@ export async function GET(request: NextRequest) {
           // Buscar graduação anterior do aluno
           const graduacaoAnterior = await prisma.graduacao.findFirst({
             where: {
+              ownerId: authResult.userId,
               alunoId: g.alunoId,
               dataGraduacao: {
                 lt: g.dataGraduacao,

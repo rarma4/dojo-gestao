@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
+
     const modalidades = await prisma.modalidade.findMany({
+      where: {
+        ownerId: authResult.userId,
+      },
       include: {
         graduacoes: {
+          where: {
+            ownerId: authResult.userId,
+          },
           orderBy: {
             ordem: "asc",
           },
@@ -36,23 +45,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    // Verifica se é admin
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
-
-    if (user?.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Apenas administradores podem criar modalidades" },
-        { status: 403 }
-      );
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const body = await request.json();
     const { nome, descricao, corTema, graduacoes } = body;
@@ -69,6 +63,7 @@ export async function POST(request: NextRequest) {
         nome,
         descricao: descricao || null,
         corTema: corTema || "#1e40af",
+        ownerId: authResult.userId,
       },
     });
 
@@ -79,6 +74,7 @@ export async function POST(request: NextRequest) {
           nome: nomeGrad,
           ordem: index + 1,
           modalidadeId: modalidade.id,
+          ownerId: authResult.userId,
         })),
       });
     }

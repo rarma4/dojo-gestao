@@ -21,7 +21,7 @@ export default async function Dashboard() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Painel Principal</h1>
         <p className="text-sm sm:text-base text-gray-600 mt-1">
-          Visão geral da sua academia de artes marciais
+          Visão geral dos dados da sua conta
         </p>
       </div>
 

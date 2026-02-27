@@ -18,7 +18,7 @@ export default function RelatoriosPage() {
         <div>
           <h1 className="text-3xl font-bold">Relatórios</h1>
           <p className="text-muted-foreground mt-2">
-            Visualize relatórios mensais de mensalidades e graduações
+            Visualize relatórios mensais dos registros da sua conta
           </p>
         </div>
       </div>

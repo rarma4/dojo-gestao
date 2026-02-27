@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
 export async function PUT(
   request: NextRequest,
@@ -8,10 +8,19 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
+
+    const graduacaoExistente = await prisma.graduacaoTipo.findFirst({
+      where: { id, ownerId: authResult.userId },
+      select: { id: true },
+    });
+
+    if (!graduacaoExistente) {
+      return NextResponse.json(
+        { error: "Graduação não encontrada" },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
@@ -52,15 +61,19 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
-    await prisma.graduacaoTipo.delete({
-      where: { id },
+    const deleted = await prisma.graduacaoTipo.deleteMany({
+      where: { id, ownerId: authResult.userId },
     });
+
+    if (deleted.count === 0) {
+      return NextResponse.json(
+        { error: "Graduação não encontrada" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

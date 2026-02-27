@@ -26,6 +26,12 @@ model User {
   sessions      Session[]
   accounts      Account[]
   professor     Professor?
+  modalidades   Modalidade[]
+  graduacoesTipo GraduacaoTipo[]
+  professores   Professor[]      @relation("ProfessorOwner")
+  alunos        Aluno[]
+  mensalidades  Mensalidade[]
+  graduacoes    Graduacao[]
 
   @@unique([email])
   @@map("user")
@@ -81,15 +87,19 @@ model Verification {
 
 model Modalidade {
   id             String           @id @default(cuid())
-  nome           String           @unique
+  nome           String
   descricao      String?
   corTema        String?          @default("#1e40af")
+  ownerId        String?
+  owner          User?            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   professores    Professor[]
   alunos         Aluno[]
   graduacoes     GraduacaoTipo[]
 
+  @@unique([ownerId, nome])
+  @@index([ownerId])
   @@map("modalidade")
 }
 
@@ -97,6 +107,8 @@ model GraduacaoTipo {
   id            String      @id @default(cuid())
   nome          String      // Ex: Faixa Branca, Faixa Azul, etc
   ordem         Int         // Para ordenar as graduações
+  ownerId       String?
+  owner         User?       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   modalidadeId  String
   modalidade    Modalidade  @relation(fields: [modalidadeId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())
@@ -104,7 +116,8 @@ model GraduacaoTipo {
   alunos        Aluno[]
   graduacoes    Graduacao[]
 
-  @@unique([modalidadeId, nome])
+  @@unique([ownerId, modalidadeId, nome])
+  @@index([ownerId])
   @@map("graduacao_tipo")
 }
 
@@ -112,7 +125,9 @@ model Professor {
   id            String      @id @default(cuid())
   nome          String
   telefone      String
-  email         String      @unique
+  email         String
+  ownerId       String?
+  owner         User?       @relation("ProfessorOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   modalidadeId  String
   modalidade    Modalidade  @relation(fields: [modalidadeId], references: [id])
   isAdmin       Boolean     @default(false)
@@ -123,6 +138,8 @@ model Professor {
   updatedAt     DateTime    @updatedAt
   graduacoes    Graduacao[]
 
+  @@unique([ownerId, email])
+  @@index([ownerId])
   @@map("professor")
 }
 
@@ -145,6 +162,8 @@ model Aluno {
   nome                String
   telefone            String
   email               String?
+  ownerId             String?
+  owner               User?             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   dataNascimento      DateTime
   dataMatricula       DateTime          @default(now())
   modalidadeId        String
@@ -161,11 +180,14 @@ model Aluno {
   mensalidades        Mensalidade[]
   graduacoes          Graduacao[]
 
+  @@index([ownerId])
   @@map("aluno")
 }
 
 model Mensalidade {
   id                String   @id @default(cuid())
+  ownerId           String?
+  owner             User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   alunoId           String
   aluno             Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
   dataPagamento     DateTime
@@ -174,11 +196,14 @@ model Mensalidade {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  @@index([ownerId])
   @@map("mensalidade")
 }
 
 model Graduacao {
   id                String         @id @default(cuid())
+  ownerId           String?
+  owner             User?          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   alunoId           String
   aluno             Aluno          @relation(fields: [alunoId], references: [id], onDelete: Cascade)
   graduacaoTipoId   String
@@ -190,5 +215,6 @@ model Graduacao {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
+  @@index([ownerId])
   @@map("graduacao")
 }

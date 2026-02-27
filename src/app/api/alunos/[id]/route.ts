@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 import { StatusMensalidade, PlanoPagamento } from "@/generated/prisma";
 
 export async function GET(
@@ -8,9 +8,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
+
     const { id } = await params;
-    const aluno = await prisma.aluno.findUnique({
-      where: { id },
+    const aluno = await prisma.aluno.findFirst({
+      where: { id, ownerId: authResult.userId },
       include: {
         modalidade: true,
         graduacaoAtual: true,
@@ -20,6 +23,9 @@ export async function GET(
           },
         },
         graduacoes: {
+          where: {
+            ownerId: authResult.userId,
+          },
           include: {
             graduacaoTipo: true,
             professor: true,
@@ -74,11 +80,8 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const body = await request.json();
     const {
@@ -95,6 +98,66 @@ export async function PUT(
       proximoVencimento,
       ativo,
     } = body;
+
+    const alunoExistente = await prisma.aluno.findFirst({
+      where: { id, ownerId: authResult.userId },
+      select: { id: true },
+    });
+
+    if (!alunoExistente) {
+      return NextResponse.json(
+        { error: "Aluno não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (modalidadeId) {
+      const modalidade = await prisma.modalidade.findFirst({
+        where: { id: modalidadeId, ownerId: authResult.userId },
+        select: { id: true },
+      });
+
+      if (!modalidade) {
+        return NextResponse.json(
+          { error: "Modalidade não encontrada" },
+          { status: 404 }
+        );
+      }
+    }
+
+    if (graduacaoAtualId !== undefined && graduacaoAtualId !== null) {
+      const modalidadeParaGraduacao = modalidadeId
+        ? modalidadeId
+        : (
+            await prisma.aluno.findFirst({
+              where: { id, ownerId: authResult.userId },
+              select: { modalidadeId: true },
+            })
+          )?.modalidadeId;
+
+      if (!modalidadeParaGraduacao) {
+        return NextResponse.json(
+          { error: "Modalidade do aluno não encontrada" },
+          { status: 400 }
+        );
+      }
+
+      const graduacaoTipo = await prisma.graduacaoTipo.findFirst({
+        where: {
+          id: graduacaoAtualId,
+          ownerId: authResult.userId,
+          modalidadeId: modalidadeParaGraduacao,
+        },
+        select: { id: true },
+      });
+
+      if (!graduacaoTipo) {
+        return NextResponse.json(
+          { error: "Graduação atual inválida para esta modalidade" },
+          { status: 400 }
+        );
+      }
+    }
 
     const updateData: any = {};
     if (nome) updateData.nome = nome;
@@ -145,15 +208,19 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
-    await prisma.aluno.delete({
-      where: { id },
+    const deleted = await prisma.aluno.deleteMany({
+      where: { id, ownerId: authResult.userId },
     });
+
+    if (deleted.count === 0) {
+      return NextResponse.json(
+        { error: "Aluno não encontrado" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

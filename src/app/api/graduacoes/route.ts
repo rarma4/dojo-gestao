@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
+
     const { searchParams } = new URL(request.url);
     const alunoId = searchParams.get("alunoId");
 
-    const where = alunoId ? { alunoId } : {};
+    const where: any = {
+      ownerId: authResult.userId,
+    };
+    if (alunoId) where.alunoId = alunoId;
 
     const graduacoes = await prisma.graduacao.findMany({
       where,
@@ -41,11 +47,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const body = await request.json();
     const { alunoId, graduacaoTipoId, professorId, dataGraduacao, valorPago } = body;
@@ -57,9 +60,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const [aluno, graduacaoTipo, professor] = await Promise.all([
+      prisma.aluno.findFirst({
+        where: { id: alunoId, ownerId: authResult.userId },
+        select: { id: true },
+      }),
+      prisma.graduacaoTipo.findFirst({
+        where: { id: graduacaoTipoId, ownerId: authResult.userId },
+        select: { id: true },
+      }),
+      prisma.professor.findFirst({
+        where: { id: professorId, ownerId: authResult.userId },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!aluno || !graduacaoTipo || !professor) {
+      return NextResponse.json(
+        { error: "Aluno, graduação ou professor inválido" },
+        { status: 400 }
+      );
+    }
+
     // Cria o registro de graduação
     const graduacao = await prisma.graduacao.create({
       data: {
+        ownerId: authResult.userId,
         alunoId,
         graduacaoTipoId,
         professorId,

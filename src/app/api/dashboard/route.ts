@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 import { StatusMensalidade } from "@/generated/prisma";
 
 export const dynamic = "force-dynamic";
@@ -8,11 +8,8 @@ export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     // Verificar e atualizar status dos alunos baseado na data de vencimento
     const hoje = new Date();
@@ -20,6 +17,7 @@ export async function GET(request: NextRequest) {
 
     const todosAlunos = await prisma.aluno.findMany({
       where: {
+        ownerId: authResult.userId,
         statusMensalidade: { not: StatusMensalidade.ISENTO },
         proximoVencimento: { not: null },
       },
@@ -52,12 +50,13 @@ export async function GET(request: NextRequest) {
 
     // Total de alunos
     const totalAlunos = await prisma.aluno.count({
-      where: { ativo: true },
+      where: { ownerId: authResult.userId, ativo: true },
     });
 
     // Alunos ativos
     const alunosAtivos = await prisma.aluno.count({
       where: {
+        ownerId: authResult.userId,
         ativo: true,
         statusMensalidade: StatusMensalidade.EM_DIA,
       },
@@ -66,6 +65,7 @@ export async function GET(request: NextRequest) {
     // Mensalidades em atraso
     const mensalidadesEmAtraso = await prisma.aluno.count({
       where: {
+        ownerId: authResult.userId,
         ativo: true,
         statusMensalidade: StatusMensalidade.ATRASADA,
       },
@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
     // Buscar a última mensalidade de cada aluno que está em dia
     const alunosEmDia = await prisma.aluno.findMany({
       where: {
+        ownerId: authResult.userId,
         ativo: true,
         statusMensalidade: StatusMensalidade.EM_DIA,
       },
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
     const mensalidadesRecentes = await Promise.all(
       alunosEmDia.map(async (aluno) => {
         return await prisma.mensalidade.findFirst({
-          where: { alunoId: aluno.id },
+          where: { alunoId: aluno.id, ownerId: authResult.userId },
           orderBy: { dataPagamento: 'desc' },
           select: { valorPago: true },
         });
@@ -101,6 +102,9 @@ export async function GET(request: NextRequest) {
 
     // Alunos por modalidade
     const alunosPorModalidade = await prisma.modalidade.findMany({
+      where: {
+        ownerId: authResult.userId,
+      },
       select: {
         id: true,
         nome: true,
@@ -123,6 +127,7 @@ export async function GET(request: NextRequest) {
 
     const graduacoesRecentes = await prisma.graduacao.findMany({
       where: {
+        ownerId: authResult.userId,
         dataGraduacao: {
           gte: trintaDiasAtras,
         },
@@ -144,6 +149,7 @@ export async function GET(request: NextRequest) {
 
     const proximosVencimentos = await prisma.aluno.findMany({
       where: {
+        ownerId: authResult.userId,
         ativo: true,
         proximoVencimento: {
           lte: seteDiasFuturo,

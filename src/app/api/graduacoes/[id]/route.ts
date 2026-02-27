@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
 export async function PUT(
   request: NextRequest,
@@ -8,11 +8,8 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const body = await request.json();
     const { alunoId, graduacaoTipoId, professorId, dataGraduacao, valorPago } = body;
@@ -20,6 +17,40 @@ export async function PUT(
     if (!alunoId || !graduacaoTipoId || !professorId || !dataGraduacao) {
       return NextResponse.json(
         { error: "Campos obrigatórios faltando" },
+        { status: 400 }
+      );
+    }
+
+    const graduacaoExistente = await prisma.graduacao.findFirst({
+      where: { id, ownerId: authResult.userId },
+      select: { id: true },
+    });
+
+    if (!graduacaoExistente) {
+      return NextResponse.json(
+        { error: "Graduação não encontrada" },
+        { status: 404 }
+      );
+    }
+
+    const [aluno, graduacaoTipo, professor] = await Promise.all([
+      prisma.aluno.findFirst({
+        where: { id: alunoId, ownerId: authResult.userId },
+        select: { id: true },
+      }),
+      prisma.graduacaoTipo.findFirst({
+        where: { id: graduacaoTipoId, ownerId: authResult.userId },
+        select: { id: true },
+      }),
+      prisma.professor.findFirst({
+        where: { id: professorId, ownerId: authResult.userId },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!aluno || !graduacaoTipo || !professor) {
+      return NextResponse.json(
+        { error: "Aluno, graduação ou professor inválido" },
         { status: 400 }
       );
     }
@@ -73,15 +104,12 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     // Busca a graduação antes de deletar para obter o alunoId
-    const graduacao = await prisma.graduacao.findUnique({
-      where: { id },
+    const graduacao = await prisma.graduacao.findFirst({
+      where: { id, ownerId: authResult.userId },
       select: { alunoId: true },
     });
 
@@ -93,13 +121,13 @@ export async function DELETE(
     }
 
     // Deleta a graduação
-    await prisma.graduacao.delete({
-      where: { id },
+    await prisma.graduacao.deleteMany({
+      where: { id, ownerId: authResult.userId },
     });
 
     // Atualiza a graduação atual do aluno para a mais recente restante
     const graduacaoMaisRecente = await prisma.graduacao.findFirst({
-      where: { alunoId: graduacao.alunoId },
+      where: { alunoId: graduacao.alunoId, ownerId: authResult.userId },
       orderBy: { dataGraduacao: "desc" },
       select: { graduacaoTipoId: true },
     });

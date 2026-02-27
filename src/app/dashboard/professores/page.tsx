@@ -8,7 +8,7 @@ export default function ProfessoresPage() {
           Gerenciar Professores
         </h1>
         <p className="text-sm sm:text-base text-gray-600 mt-1">
-          Cadastre e gerencie os professores da academia
+          Cadastre e gerencie apenas os professores da sua conta
         </p>
       </div>
 

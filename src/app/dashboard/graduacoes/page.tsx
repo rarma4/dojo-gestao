@@ -8,7 +8,7 @@ export default function GraduacoesPage() {
           Histórico de Graduações
         </h1>
         <p className="text-sm sm:text-base text-gray-600 mt-1">
-          Registre e acompanhe a evolução dos alunos
+          Registre e acompanhe a evolução dos alunos da sua conta
         </p>
       </div>
 

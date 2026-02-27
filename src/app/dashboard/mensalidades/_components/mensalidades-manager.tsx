@@ -177,7 +177,7 @@ export function MensalidadesManager() {
             {filteredMensalidades.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
-                  Nenhuma mensalidade encontrada
+                  Nenhuma mensalidade encontrada para a sua conta
                 </TableCell>
               </TableRow>
             ) : (

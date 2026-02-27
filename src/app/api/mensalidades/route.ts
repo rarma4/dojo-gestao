@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 import { StatusMensalidade, PlanoPagamento } from "@/generated/prisma";
 
 // Função auxiliar para calcular próximo vencimento
@@ -52,10 +52,17 @@ function determinarStatusMensalidade(
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
+
     const { searchParams } = new URL(request.url);
     const alunoId = searchParams.get("alunoId");
 
-    const where = alunoId ? { alunoId } : {};
+    const where: any = {
+      ownerId: authResult.userId,
+    };
+
+    if (alunoId) where.alunoId = alunoId;
 
     const mensalidades = await prisma.mensalidade.findMany({
       where,
@@ -83,11 +90,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const body = await request.json();
     const { alunoId, dataPagamento, valorPago } = body;
@@ -104,7 +108,7 @@ export async function POST(request: NextRequest) {
       where: { id: alunoId },
     });
 
-    if (!aluno) {
+    if (!aluno || aluno.ownerId !== authResult.userId) {
       return NextResponse.json(
         { error: "Aluno não encontrado" },
         { status: 404 }
@@ -120,6 +124,7 @@ export async function POST(request: NextRequest) {
     // Cria a mensalidade
     const mensalidade = await prisma.mensalidade.create({
       data: {
+        ownerId: authResult.userId,
         alunoId,
         dataPagamento: dataPagamentoDate,
         valorPago: parseFloat(valorPago),

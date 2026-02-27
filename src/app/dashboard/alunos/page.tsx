@@ -6,7 +6,7 @@ export default function AlunosPage() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Gerenciar Alunos</h1>
         <p className="text-sm sm:text-base text-gray-600 mt-1">
-          Cadastre e gerencie os alunos da academia
+          Cadastre e gerencie apenas os alunos da sua conta
         </p>
       </div>
 

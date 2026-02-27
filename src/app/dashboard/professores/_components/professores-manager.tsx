@@ -124,7 +124,7 @@ export function ProfessoresManager() {
             {professores.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
-                  Nenhum professor encontrado
+                  Nenhum professor encontrado para a sua conta
                 </TableCell>
               </TableRow>
             ) : (

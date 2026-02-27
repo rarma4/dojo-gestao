@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
+
     const { id } = await params;
-    const modalidade = await prisma.modalidade.findUnique({
-      where: { id },
+    const modalidade = await prisma.modalidade.findFirst({
+      where: { id, ownerId: authResult.userId },
       include: {
         graduacoes: {
+          where: {
+            ownerId: authResult.userId,
+          },
           orderBy: {
             ordem: "asc",
           },
@@ -48,20 +54,18 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const modalidadeExistente = await prisma.modalidade.findFirst({
+      where: { id, ownerId: authResult.userId },
+      select: { id: true },
     });
 
-    if (user?.role !== "ADMIN") {
+    if (!modalidadeExistente) {
       return NextResponse.json(
-        { error: "Apenas administradores podem editar modalidades" },
-        { status: 403 }
+        { error: "Modalidade não encontrada" },
+        { status: 404 }
       );
     }
 
@@ -88,7 +92,7 @@ export async function PUT(
     if (graduacoes && Array.isArray(graduacoes)) {
       // Buscar graduações existentes
       const graduacoesExistentes = await prisma.graduacaoTipo.findMany({
-        where: { modalidadeId: id },
+        where: { modalidadeId: id, ownerId: authResult.userId },
         orderBy: { ordem: "asc" },
       });
 
@@ -109,6 +113,7 @@ export async function PUT(
         // Verificar se alguma dessas graduações está em uso
         const graduacoesEmUso = await prisma.graduacao.findMany({
           where: {
+            ownerId: authResult.userId,
             graduacaoTipoId: {
               in: idsParaDeletar
             }
@@ -124,6 +129,7 @@ export async function PUT(
         if (idsParaDeletarSeguro.length > 0) {
           await prisma.graduacaoTipo.deleteMany({
             where: {
+              ownerId: authResult.userId,
               id: {
                 in: idsParaDeletarSeguro
               }
@@ -152,16 +158,20 @@ export async function PUT(
             nome: nomeGrad.trim(),
             ordem: maiorOrdem + index + 1,
             modalidadeId: id,
+            ownerId: authResult.userId,
           })),
         });
       }
     }
 
     // Buscar e retornar a modalidade atualizada com as graduações
-    const modalidadeAtualizada = await prisma.modalidade.findUnique({
-      where: { id },
+    const modalidadeAtualizada = await prisma.modalidade.findFirst({
+      where: { id, ownerId: authResult.userId },
       include: {
         graduacoes: {
+          where: {
+            ownerId: authResult.userId,
+          },
           orderBy: {
             ordem: "asc",
           },
@@ -206,26 +216,19 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const deleted = await prisma.modalidade.deleteMany({
+      where: { id, ownerId: authResult.userId },
     });
 
-    if (user?.role !== "ADMIN") {
+    if (deleted.count === 0) {
       return NextResponse.json(
-        { error: "Apenas administradores podem deletar modalidades" },
-        { status: 403 }
+        { error: "Modalidade não encontrada" },
+        { status: 404 }
       );
     }
-
-    await prisma.modalidade.delete({
-      where: { id },
-    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

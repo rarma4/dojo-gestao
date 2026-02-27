@@ -147,7 +147,7 @@ export function GraduacoesManager() {
             {graduacoes.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
-                  Nenhuma graduação registrada
+                  Nenhuma graduação registrada para a sua conta
                 </TableCell>
               </TableRow>
             ) : (

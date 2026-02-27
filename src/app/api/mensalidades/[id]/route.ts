@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/tenant";
 
 export async function DELETE(
   request: NextRequest,
@@ -8,15 +8,12 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     // Buscar mensalidade para obter o alunoId
-    const mensalidade = await prisma.mensalidade.findUnique({
-      where: { id },
+    const mensalidade = await prisma.mensalidade.findFirst({
+      where: { id, ownerId: authResult.userId },
       include: { aluno: true },
     });
 
@@ -28,8 +25,8 @@ export async function DELETE(
     }
 
     // Deletar mensalidade
-    await prisma.mensalidade.delete({
-      where: { id },
+    await prisma.mensalidade.deleteMany({
+      where: { id, ownerId: authResult.userId },
     });
 
     // Atualizar status do aluno para ATRASADA
@@ -62,11 +59,8 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
+    const authResult = await getAuthenticatedUser(request);
+    if ("response" in authResult) return authResult.response;
 
     const body = await request.json();
     const { dataPagamento, valorPago } = body;
@@ -79,8 +73,8 @@ export async function PUT(
     }
 
     // Buscar mensalidade para obter informações do aluno
-    const mensalidadeAtual = await prisma.mensalidade.findUnique({
-      where: { id },
+    const mensalidadeAtual = await prisma.mensalidade.findFirst({
+      where: { id, ownerId: authResult.userId },
       include: { aluno: true },
     });
 

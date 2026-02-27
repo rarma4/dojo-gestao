@@ -155,7 +155,7 @@ export function RelatoriosTable({ filters }: RelatoriosTableProps) {
                     colSpan={filters.tipo === "todos" ? 8 : 6}
                     className="text-center py-8 text-muted-foreground"
                   >
-                    Nenhum registro encontrado para os filtros selecionados
+                    Nenhum registro da sua conta encontrado para os filtros selecionados
                   </TableCell>
                 </TableRow>
               ) : (

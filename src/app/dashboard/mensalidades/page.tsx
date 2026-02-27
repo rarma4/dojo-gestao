@@ -8,7 +8,7 @@ export default function MensalidadesPage() {
           Controle de Mensalidades
         </h1>
         <p className="text-sm sm:text-base text-gray-600 mt-1">
-          Visualize e gerencie o status de pagamento dos alunos
+          Visualize e gerencie os pagamentos dos alunos da sua conta
         </p>
       </div>
 

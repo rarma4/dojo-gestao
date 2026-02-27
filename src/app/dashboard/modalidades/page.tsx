@@ -8,7 +8,7 @@ export default function ModalidadesPage() {
           Gerenciar Modalidades
         </h1>
         <p className="text-sm sm:text-base text-gray-600 mt-1">
-          Adicione ou edite as artes marciais oferecidas
+          Adicione ou edite as modalidades da sua conta
         </p>
       </div>
 
